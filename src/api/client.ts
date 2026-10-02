@@ -5,45 +5,101 @@
  * For production, set VITE_API_BASE_URL environment variable or update this constant
  */
 
-import type { ArticlesListResponse, ArticlesListParams, ArticleDetail } from '../types';
+import type {
+  ArticleDetail,
+  ArticlesListParams,
+  ArticlesListResponse,
+} from '../types';
 
-// Use environment variable if set, otherwise default to local mock API
-// For production, set VITE_API_BASE_URL=https://<provided-domain>/api
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001/api';
 
-/**
- * Fetches a paginated list of articles
- */
-export async function fetchArticles(params: ArticlesListParams = {}): Promise<ArticlesListResponse> {
-  const { cursor = null, limit = 10, q = null } = params;
-  
-  const searchParams = new URLSearchParams();
-  if (cursor) searchParams.set('cursor', cursor);
-  if (limit) searchParams.set('limit', limit.toString());
-  if (q) searchParams.set('q', q);
-  
-  const url = `${API_BASE_URL}/articles?${searchParams.toString()}`;
-  
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch articles: ${response.status} ${response.statusText}`);
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-  
-  return response.json();
+}
+
+/** Coerce whatever the server sends into the shape the UI relies on. */
+function normalizeArticle<T extends { id: string }>(raw: T): T {
+  return { ...raw, id: String(raw.id) };
+}
+
+function normalizePage(raw: ArticlesListResponse): ArticlesListResponse {
+  const nextCursor = raw.nextCursor ?? null;
+  return {
+    items: (raw.items ?? []).map(normalizeArticle),
+    nextCursor,
+    // Never claim there is more to load if there's no cursor to load it with.
+    hasMore: Boolean(raw.hasMore) && nextCursor !== null,
+  };
 }
 
 /**
- * Fetches a single article by ID
+ * GET /articles: one page of the feed.
+ * Every request is logged so the console shows pages being fetched one at a
+ * time as you scroll, never all at once.
  */
-export async function fetchArticle(id: string): Promise<ArticleDetail> {
-  const url = `${API_BASE_URL}/articles/${id}`;
-  
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch article: ${response.status} ${response.statusText}`);
+export async function fetchArticles(
+  { cursor = null, limit = 10, q = null }: ArticlesListParams,
+  signal?: AbortSignal,
+): Promise<ArticlesListResponse> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set('cursor', cursor);
+  if (q) params.set('q', q);
+  const url = `${API_BASE_URL}/articles?${params.toString()}`;
+
+  const startedAt = performance.now();
+  console.log(`[API] → GET ${url}`);
+
+  let response: Response;
+  try {
+    response = await fetch(url, { signal });
+  } catch (err) {
+    if (signal?.aborted) {
+      console.log(`[API] ✕ aborted ${url}`);
+      throw err;
+    }
+    console.error(`[API] ✕ network error ${url}`, err);
+    throw new ApiError(
+      'Could not reach the article server. Check that the mock API is running on port 3001.',
+    );
   }
-  
-  return response.json();
+
+  if (!response.ok) {
+    console.error(`[API] ✕ ${response.status} ${url}`);
+    throw new ApiError(
+      `The article server responded with ${response.status}.`,
+      response.status,
+    );
+  }
+
+  const page = normalizePage((await response.json()) as ArticlesListResponse);
+  const ms = Math.round(performance.now() - startedAt);
+  console.log(
+    `[API] ← ${response.status} ${page.items.length} articles, ` +
+      `nextCursor=${JSON.stringify(page.nextCursor)}, hasMore=${page.hasMore} (${ms}ms)`,
+  );
+  return page;
+}
+
+/** GET /articles/:id: not needed by the feed, kept for a future detail view. */
+export async function fetchArticle(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ArticleDetail> {
+  const url = `${API_BASE_URL}/articles/${encodeURIComponent(id)}`;
+  console.log(`[API] → GET ${url}`);
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    throw new ApiError(
+      `The article server responded with ${response.status}.`,
+      response.status,
+    );
+  }
+  return normalizeArticle((await response.json()) as ArticleDetail);
 }

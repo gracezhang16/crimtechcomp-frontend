@@ -1,71 +1,504 @@
-.read-page {
-  max-width: 800px;
+/* ---------- Masthead ---------- */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead-inner {
+  max-width: 66rem;
+  height: var(--masthead-height);
   margin: 0 auto;
-  padding: 2rem;
-}
-
-.read-header {
-  margin-bottom: 2rem;
-}
-
-.read-header h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-}
-
-.read-content {
-  /* Add your styles here */
-}
-
-.articles-list {
+  padding: 0 1.5rem;
   display: flex;
-  flex-direction: column;
-  gap: 2rem;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-.article-card {
-  padding: 1.5rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+.wordmark {
+  margin: 0;
+  font: 700 1.5rem/1 var(--font-serif);
+  letter-spacing: -0.01em;
 }
 
-.article-card h2 {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+/* ---------- Search ---------- */
+
+.search {
+  position: relative;
+  margin-left: auto;
+  width: min(24rem, 100%);
 }
 
-.article-dek {
-  font-size: 1.1rem;
-  color: #666;
-  margin-bottom: 1rem;
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  width: 1.05rem;
+  height: 1.05rem;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.article-meta {
-  font-size: 0.9rem;
-  color: #888;
-  display: flex;
-  gap: 0.5rem;
+.search-input {
+  width: 100%;
+  font: 400 0.9375rem/1.2 var(--font-sans);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.6rem 2.4rem 0.6rem 2.35rem;
 }
 
-.loading-state,
-.error-state,
-.empty-state,
-.loading-more,
-.end-state {
-  text-align: center;
-  padding: 2rem;
+.search-input::placeholder {
+  color: var(--muted);
 }
 
-.error-state button {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background: #007bff;
-  color: white;
-  border: none;
+.search-input:focus-visible {
+  outline-offset: 0;
+  border-color: var(--link);
+}
+
+/* We render our own clear button. */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
 }
 
-.error-state button:hover {
-  background: #0056b3;
+.search-clear:hover {
+  color: var(--ink);
+}
+
+.search-clear svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---------- Two-column layout ---------- */
+
+.layout {
+  max-width: 66rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 0;
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 46rem);
+  justify-content: space-between;
+  column-gap: 4rem;
+}
+
+.layout-aside {
+  position: relative;
+}
+
+.layout-main {
+  min-width: 0;
+  /* Bottom space lives here, not on .layout, so the grid row (and therefore
+     the sticky sidebar's containing block) runs all the way to the page end. */
+  padding-bottom: 8rem;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 46rem);
+    justify-content: center;
+    padding-top: 2.5rem;
+  }
+
+  .layout-aside {
+    display: none;
+  }
+}
+
+/* ---------- Sidebar: articles in this feed ---------- */
+
+.toc {
+  position: sticky;
+  top: calc(var(--masthead-height) + 3.5rem);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--masthead-height) - 5rem);
+}
+
+.toc-count {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.toc-count {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.toc-list {
+  position: relative; /* offsetParent for keeping the active link in view */
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The sidebar positions itself when sets change; stop the browser from
+     also nudging the scroll position when titles are added above. */
+  overflow-anchor: none;
+  scrollbar-width: thin;
+}
+
+.toc-link {
+  display: block;
+  padding: 0.35rem 0.25rem 0.35rem 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.toc-link:hover .toc-link-text {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Articles above the one you're reading fade back: a quiet progress trail. */
+.toc-link.is-read {
+  color: var(--muted);
+}
+
+/* The highlighter. It swipes across the title of the article you're on,
+   wrapping cleanly when the title spans several lines. */
+.toc-link-text {
+  background-image: linear-gradient(
+    transparent 8%,
+    var(--highlight) 8%,
+    var(--highlight) 94%,
+    transparent 94%
+  );
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 0.2em;
+  margin: 0 -0.2em;
+  transition: background-size 320ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+/* No bold here on purpose: bolder text can wrap onto an extra line, which
+   would shift every title below it each time the highlight moves. */
+.toc-link[aria-current='true'] {
+  color: var(--highlight-ink);
+}
+
+.toc-link[aria-current='true'] .toc-link-text {
+  background-size: 100% 100%;
+}
+
+/* ---------- Feed ---------- */
+
+.feed-context {
+  margin: 0 0 2.5rem;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+.article {
+  scroll-margin-top: calc(var(--masthead-height) + 2rem);
+}
+
+.article:focus {
+  outline: none;
+}
+
+.article + .article {
+  margin-top: 5.5rem;
+  padding-top: 5.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.article-title {
+  margin: 0;
+  font: 700 2.375rem/1.12 var(--font-serif);
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.article-dek {
+  margin: 1rem 0 0;
+  font: italic 400 1.3125rem/1.45 var(--font-serif);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.article-meta {
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.25rem;
+  row-gap: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.article-author {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.article-figure {
+  margin: 2rem 0 0;
+  aspect-ratio: 16 / 9;
+  background: var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.article-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Server-provided article HTML */
+.article-body {
+  margin-top: 2rem;
+  font: 400 1.1875rem/1.68 var(--font-serif);
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+.article-body > :first-child {
+  margin-top: 0;
+}
+
+.article-body p {
+  margin: 0 0 1.35em;
+  text-wrap: pretty;
+}
+
+.article-body h2,
+.article-body h3,
+.article-body h4 {
+  font-family: var(--font-serif);
+  line-height: 1.25;
+  margin: 2em 0 0.6em;
+}
+
+.article-body h2 {
+  font-size: 1.5rem;
+}
+
+.article-body h3 {
+  font-size: 1.25rem;
+}
+
+.article-body a {
+  color: var(--link);
+  text-underline-offset: 0.18em;
+}
+
+.article-body blockquote {
+  margin: 1.75em 0;
+  padding-left: 1.25em;
+  border-left: 3px solid var(--ink);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.article-body ul,
+.article-body ol {
+  padding-left: 1.4em;
+  margin: 0 0 1.35em;
+}
+
+.article-body li + li {
+  margin-top: 0.4em;
+}
+
+.article-body img {
+  height: auto;
+  margin: 1.75em 0;
+  border-radius: 3px;
+}
+
+.article-body code {
+  font-size: 0.88em;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+}
+
+.article-body pre {
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+/* ---------- Loading, error, empty, end ---------- */
+
+.feed-note {
+  margin: 3rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--rule);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeleton-article + .skeleton-article {
+  margin-top: 5.5rem;
+  padding-top: 5.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.skeleton-line,
+.skeleton-block {
+  background: var(--rule);
+  border-radius: 3px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 1rem;
+  margin-top: 0.9rem;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-title {
+  height: 2.2rem;
+  margin-top: 0.6rem;
+}
+
+.skeleton-title.short {
+  width: 70%;
+}
+
+.skeleton-meta {
+  width: 40%;
+  height: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.skeleton-block {
+  aspect-ratio: 16 / 9;
+  margin: 2rem 0 1rem;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.notice {
+  margin-top: 3rem;
+  padding: 1.5rem 0 0;
+  border-top: 2px solid var(--ink);
+}
+
+.notice-error {
+  border-top-color: var(--danger);
+}
+
+.notice-title {
+  margin: 0;
+  font: 700 1.375rem/1.3 var(--font-serif);
+}
+
+.notice-body {
+  margin: 0.5rem 0 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.caught-up {
+  margin-top: 5.5rem;
+  padding-top: 3rem;
+  border-top: 2px solid var(--ink);
+}
+
+.caught-up-title {
+  margin: 0;
+  font: 700 1.875rem/1.2 var(--font-serif);
+}
+
+.sentinel {
+  height: 1px;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 560px) {
+  :root {
+    --masthead-height: 3.75rem;
+  }
+
+  .masthead-inner {
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .wordmark {
+    font-size: 1.25rem;
+  }
+
+  .layout {
+    padding: 2rem 1.25rem 0;
+  }
+
+  .layout-main {
+    padding-bottom: 6rem;
+  }
+
+  .article-title {
+    font-size: 1.875rem;
+  }
+
+  .article-dek {
+    font-size: 1.1875rem;
+  }
+
+  .article-body {
+    font-size: 1.125rem;
+  }
+
+  .article + .article {
+    margin-top: 4rem;
+    padding-top: 4rem;
+  }
 }
